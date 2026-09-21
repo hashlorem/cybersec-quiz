@@ -94,6 +94,11 @@
   record("full shuffle builds 74 steps", session().steps.length === 74, session().steps.length);
   record("question counter shows 1 of 74", /Question 1 of 74/.test($("#quiz-count").textContent), $("#quiz-count").textContent);
   record("exit control lives in the quiz bar", $("#exit-btn").closest(".quizbar") !== null, "");
+  const barBg = getComputedStyle($(".quizbar")).backgroundColor;
+  const bodyBg = getComputedStyle(document.body).backgroundColor;
+  record("quiz bar blends into the canvas (no stray block)", barBg === bodyBg, barBg + " vs body " + bodyBg);
+  record("the glow layer is scoped to the home screen", !$("#screen-quiz .aurora") && !!$("#screen-home .aurora"), "quiz=" + !!$("#screen-quiz .aurora") + " home=" + !!$("#screen-home .aurora"));
+  record("sticky bar spans the content column only", $("#exit-btn").getBoundingClientRect().right <= $(".card").getBoundingClientRect().right + 1, "");
   record("streak chip hidden before any answer", $("#quiz-streak").hidden, $("#quiz-streak").hidden);
   record("progress starts empty", !$("#progress-fill").style.width || $("#progress-fill").style.width === "0%", $("#progress-fill").style.width);
 

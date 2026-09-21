@@ -74,19 +74,21 @@ a:hover {
 }
 
 .aurora {
-  position: fixed;
-  inset: 0;
+  position: absolute;
+  top: -18%;
+  left: -55%;
+  right: -55%;
+  height: 760px;
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(760px 520px at 12% -6%, var(--tint-blue), transparent 70%),
-    radial-gradient(620px 460px at 92% 4%, rgba(48, 209, 88, 0.1), transparent 72%);
+    radial-gradient(760px 520px at 22% 12%, var(--tint-blue), transparent 70%),
+    radial-gradient(620px 460px at 82% 4%, var(--tint-aurora), transparent 72%);
 }
 
-@media (prefers-color-scheme: dark) {
-  .aurora {
-    opacity: 0.85;
-  }
+.screen--home {
+  position: relative;
+  isolation: isolate;
 }
 
 /* ---------- shell ---------- */
@@ -407,7 +409,7 @@ main {
   top: 0;
   z-index: 30;
   padding: var(--space-4) 0 var(--space-3);
-  background: linear-gradient(180deg, var(--canvas) 68%, transparent);
+  background: var(--canvas);
 }
 
 .streak {

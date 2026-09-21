@@ -73,7 +73,7 @@ function serve() {
   });
 }
 
-async function connect(port, url, driverFile, label) {
+async function connect(port, url, driverFile, label, scheme) {
   const target = await (await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent("about:blank")}`, { method: "PUT" })).json();
   const ws = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
@@ -107,7 +107,10 @@ async function connect(port, url, driverFile, label) {
   await send("Page.enable");
   await send("Network.enable");
   await send("Network.setCacheDisabled", { cacheDisabled: true });
-  await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
+  await send("Emulation.setEmulatedMedia", { features: [
+    { name: "prefers-reduced-motion", value: "reduce" },
+    { name: "prefers-color-scheme", value: scheme || "light" }
+  ] });
   await send("Page.navigate", { url });
   for (let i = 0; i < 60; i++) {
     const ready = await send("Runtime.evaluate", { expression: "!!(window.QZ && window.QZ.state && window.QZ.state.screen)", returnByValue: true });
@@ -172,12 +175,13 @@ if (!await waitForCdp()) {
 const base = `http://127.0.0.1:${sitePort}/`;
 const runs = [
   { label: "full flow", url: base, driver: path.join(root, "tools/page-flow.js") },
-  { label: "matching drag", url: base + "?deck=both&seed=drag52", driver: path.join(root, "tools/page-matching.js") }
+  { label: "matching drag", url: base + "?deck=both&seed=drag52", driver: path.join(root, "tools/page-matching.js") },
+  { label: "dark mode", url: base + "?deck=network&seed=darkpass", driver: path.join(root, "tools/page-dark.js"), scheme: "dark" }
 ];
 
 let failed = 0;
 for (const run of runs) {
-  const result = await connect(debugPort, run.url, run.driver, run.label);
+  const result = await connect(debugPort, run.url, run.driver, run.label, run.scheme);
   console.log(`\n${run.label}: ${result.total - result.failures}/${result.total} checks passed`);
   for (const entry of result.results) {
     if (entry.pass) continue;

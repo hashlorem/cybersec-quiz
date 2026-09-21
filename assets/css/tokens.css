@@ -71,6 +71,7 @@
   --hairline: rgba(0, 0, 0, 0.08);
   --hairline-strong: rgba(0, 0, 0, 0.16);
   --tint-blue: rgba(0, 113, 227, 0.08);
+  --tint-aurora: rgba(48, 209, 88, 0.1);
   --tint-success: rgba(48, 209, 88, 0.14);
   --tint-danger: rgba(255, 69, 58, 0.12);
   --glass: rgba(255, 255, 255, 0.72);
@@ -98,6 +99,7 @@
     --hairline: rgba(255, 255, 255, 0.12);
     --hairline-strong: rgba(255, 255, 255, 0.22);
     --tint-blue: rgba(41, 151, 255, 0.16);
+    --tint-aurora: rgba(48, 209, 88, 0.14);
     --tint-success: rgba(48, 209, 88, 0.2);
     --tint-danger: rgba(255, 69, 58, 0.2);
     --glass: rgba(22, 22, 24, 0.72);

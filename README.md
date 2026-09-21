@@ -94,10 +94,14 @@ node tools/browser-check.mjs    # real Chromium: full flow + matching drag
 
 Both need Node 22+. `browser-check.mjs` finds a Chromium build itself (or set
 `CHROME=/path/to/browser`), serves the site, and drives it over the DevTools
-Protocol: it walks all 75 questions of a run (74 plus the queued make-up),
-answering every type correctly with one deliberate miss, and checks streaks,
-the make-up round, results, review, resume, history, keyboard advance, and the
-matching board by both drag and tap.
+Protocol in three passes:
+
+- **full flow** walks all 75 questions of a run (74 plus the queued make-up),
+  answering every type correctly with one deliberate miss, then checks streaks,
+  the make-up round, results, review, resume, history, and keyboard advance.
+- **matching drag** answers a matching board by drag and by tap.
+- **dark mode** re-checks the sticky bar against the canvas and runs a whole
+  deck to confirm results and review render on the dark surfaces.
 
 `bank-check.mjs` also covers the rules that are easy to break silently: streaks
 building and resetting, a miss being queued exactly once, a missed make-up not
@@ -127,3 +131,7 @@ git push
   public. The source material they came from is public too.
 - Motion respects `prefers-reduced-motion`: springs and staggers collapse to
   instant transitions.
+- The soft glow behind the hero belongs to the home screen only. It used to be
+  a full-page layer, which made the sticky quiz bar paint a visible block over
+  it in dark mode, since the canvas had a tint the bar could not match. Keeping
+  every other screen on a flat canvas means the bar and the page always agree.
