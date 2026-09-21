@@ -56,6 +56,9 @@
   --danger: #ff453a;
   --warning: #ff9f0a;
   --focus: #0071e3;
+  --good-text: #1c8c3a;
+  --warn-text: #a35b00;
+  --bad-text: #c7362b;
 
   --canvas: #f5f5f7;
   --canvas-deep: #ececee;
@@ -81,6 +84,9 @@
     --blue: #2997ff;
     --blue-press: #1f8ff7;
     --link: #2997ff;
+    --good-text: #30d158;
+    --warn-text: #ff9f0a;
+    --bad-text: #ff6b60;
     --canvas: #000000;
     --canvas-deep: #0a0a0c;
     --surface: #1d1d1f;

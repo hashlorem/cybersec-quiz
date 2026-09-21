@@ -13,6 +13,7 @@
   var currentScreen = "home";
   var lastResult = null;
   var reviewMissedOnly = false;
+  var lastStreakShown = 0;
 
   var el = {
     frame: document.getElementById("card-frame"),
@@ -20,6 +21,7 @@
     deckChip: document.getElementById("quiz-deck"),
     count: document.getElementById("quiz-count"),
     score: document.getElementById("quiz-score"),
+    streak: document.getElementById("quiz-streak"),
     progress: document.getElementById("progress"),
     progressFill: document.getElementById("progress-fill"),
     tiles: document.getElementById("deck-tiles"),
@@ -27,7 +29,6 @@
     resumeWrap: document.getElementById("resume-wrap"),
     resumeBtn: document.getElementById("resume-btn"),
     exitBtn: document.getElementById("exit-btn"),
-    topbarStatus: document.getElementById("topbar-status"),
     sheet: document.getElementById("sheet"),
     sheetTitle: document.getElementById("sheet-title"),
     sheetBody: document.getElementById("sheet-body"),
@@ -41,9 +42,11 @@
       ring: document.getElementById("ring-value"),
       pct: document.getElementById("ring-pct"),
       sub: document.getElementById("ring-sub"),
+      makeupNote: document.getElementById("makeup-note"),
       grid: document.getElementById("result-grid"),
       breakdown: document.getElementById("breakdown"),
-      actions: document.getElementById("result-actions")
+      actions: document.getElementById("result-actions"),
+      seed: document.getElementById("result-seed")
     },
     reviewList: document.getElementById("review-list"),
     reviewFilter: document.getElementById("review-filter"),
@@ -60,7 +63,7 @@
     window.clearTimeout(showToast.timer);
     showToast.timer = window.setTimeout(function () {
       el.toast.classList.remove("toast--visible");
-    }, ms || 2400);
+    }, ms || 2600);
   }
 
   function registerScreens() {
@@ -77,7 +80,6 @@
     currentScreen = name;
     Motion.swap(from, target);
     el.exitBtn.hidden = name !== "quiz";
-    el.topbarStatus.textContent = name === "quiz" && session ? session.steps.length + " questions · seed " + session.seed : "";
     window.scrollTo({ top: 0, behavior: Motion.reduced() ? "auto" : "smooth" });
   }
 
@@ -98,6 +100,10 @@
       return hours + "h " + (minutes % 60) + "m";
     }
     return minutes + "m " + (seconds < 10 ? "0" + seconds : seconds) + "s";
+  }
+
+  function compact() {
+    return window.matchMedia("(max-width: 560px)").matches;
   }
 
   /* ---------- home ---------- */
@@ -133,10 +139,6 @@
     } else {
       el.resumeWrap.hidden = true;
     }
-
-    if (!Store.available) {
-      el.topbarStatus.textContent = "history off (storage blocked)";
-    }
   }
 
   /* ---------- session ---------- */
@@ -147,9 +149,12 @@
     return value ? Engine.seedFrom(value) : Engine.newSeed();
   }
 
-  function startSession(deckKey, seed) {
-    session = Engine.build(deckKey, seed || seedFromUrl());
+  function startSession(deckKey, seed, itemIds) {
+    session = itemIds && itemIds.length
+      ? Engine.buildSubset(deckKey, itemIds, seed || Engine.newSeed())
+      : Engine.build(deckKey, seed || seedFromUrl());
     draft = null;
+    lastStreakShown = 0;
     Store.saveSession(Engine.snapshot(session));
     go("quiz");
     renderStep();
@@ -160,6 +165,7 @@
     if (!saved) return;
     session = Engine.restore(saved);
     if (!session) return;
+    lastStreakShown = session.streak;
     go("quiz");
     renderStep();
   }
@@ -172,7 +178,6 @@
   }
 
   function draftFor(step) {
-    if (step.graded && step.response) return normalizeDraft(step, step.response);
     return normalizeDraft(step, step.response) || emptyDraft(step);
   }
 
@@ -206,20 +211,42 @@
     return draft.choice !== null && draft.choice !== undefined;
   }
 
+  function paintStreak() {
+    var streak = session.streak;
+    var isNew = streak >= 2 && streak !== lastStreakShown;
+    lastStreakShown = streak;
+
+    if (streak < 2) {
+      el.streak.hidden = true;
+      el.streak.textContent = "";
+      el.streak.classList.remove("streak--pop", "streak--hot");
+      return;
+    }
+
+    el.streak.hidden = false;
+    el.streak.textContent = streak + (compact() ? "×" : " in a row");
+    el.streak.classList.toggle("streak--hot", streak >= 5);
+    if (isNew) {
+      el.streak.classList.remove("streak--pop");
+      void el.streak.offsetWidth;
+      el.streak.classList.add("streak--pop");
+    }
+  }
+
   function updateQuizBar() {
-    var step = session.steps[session.index];
-    var compact = window.matchMedia("(max-width: 560px)").matches;
+    var progressNow = Engine.progress(session);
+    var pending = session.steps.length - progressNow.done;
+
     el.deckChip.textContent = session.deckTitle;
-    el.count.textContent = compact
+    el.count.textContent = compact()
       ? (session.index + 1) + " / " + session.steps.length
       : "Question " + (session.index + 1) + " of " + session.steps.length;
-    el.score.textContent = compact
+    el.score.textContent = compact()
       ? session.score + " / " + session.answered
-      : session.score + " correct · " + session.answered + " answered";
-    var pct = percent(session.answered, session.steps.length);
-    el.progress.setAttribute("aria-valuenow", String(pct));
-    Motion.animateWidth(el.progressFill, pct);
-    el.topbarStatus.textContent = session.steps.length + " questions · seed " + session.seed;
+      : session.score + " correct · " + session.answered + " answered" + (pending ? " · " + pending + " left" : "");
+    paintStreak();
+    el.progress.setAttribute("aria-valuenow", String(progressNow.pct));
+    Motion.animateWidth(el.progressFill, progressNow.pct);
   }
 
   function renderStep() {
@@ -258,6 +285,7 @@
       });
       window.setTimeout(settle, Motion.reduced() ? 40 : 520);
     }
+
     announce("Question " + (session.index + 1) + " of " + session.steps.length + ". " + Render.promptText(step.item));
   }
 
@@ -306,11 +334,30 @@
       showToast("Finish the answer first");
       return;
     }
+
+    var queuedBefore = session.requeued.length;
+    var streaksBefore = Engine.missedSteps(session).length;
+    var missedThis = !step.correct;
+
     Engine.apply(session, draft);
     Store.saveSession(Engine.snapshot(session));
     updateQuizBar();
     renderStep();
-    announce(step.correct ? "Correct." : "Incorrect. " + Engine.correctText(step));
+
+    if (session.requeued.length > queuedBefore && missedThis && step.origin === "primary") {
+      showToast("Missed one, it goes into the make-up round at the end");
+    } else if (step.correct && session.streak === 5) {
+      showToast("Five in a row");
+    } else if (step.correct && session.streak === 10) {
+      showToast("Ten in a row, keep it going");
+    }
+
+    announce(
+      (step.origin === "makeup"
+        ? (step.correct ? "Cleared. " : "Still missed. ")
+        : (step.correct ? "Correct. " : "Incorrect. ")) + Engine.correctText(step) +
+        (streaksBefore !== Engine.missedSteps(session).length ? " Added to the make-up round." : "")
+    );
   }
 
   function onNext() {
@@ -326,17 +373,36 @@
   function finishSession() {
     session.finishedAt = Date.now();
     Store.clearSession();
-    var duration = session.finishedAt - session.startedAt;
+    var missed = Engine.missedSteps(session);
+    var stillMissed = missed.filter(function (step) {
+      return session.requeued.indexOf(step.item.id) !== -1;
+    }).filter(function (step) {
+      var makeup = session.steps.filter(function (candidate) {
+        return candidate.origin === "makeup" && candidate.item.id === step.item.id;
+      })[0];
+      return !makeup || !makeup.correct;
+    });
+
+    var streakRecord = Store.recordStreak(session.deck, session.bestStreak);
+
     lastResult = {
       deck: session.deck,
       deckTitle: session.deckTitle,
       score: session.score,
-      total: session.steps.length,
-      pct: percent(session.score, session.steps.length),
-      duration: duration,
+      total: session.primaryTotal,
+      pct: percent(session.score, session.primaryTotal),
+      duration: session.finishedAt - session.startedAt,
       seed: session.seed,
-      date: new Date().toISOString()
+      date: new Date().toISOString(),
+      bestStreak: session.bestStreak,
+      streakRecord: streakRecord.isRecord && streakRecord.best > 0,
+      streakBest: streakRecord.best,
+      missed: missed.length,
+      makeupTotal: session.makeup.total,
+      makeupCleared: session.makeup.cleared,
+      stillMissedIds: stillMissed.map(function (step) { return step.item.id; })
     };
+
     var isBest = Store.recordBest(session.deck, lastResult);
     Store.addAttempt(lastResult);
     renderResults(isBest);
@@ -347,7 +413,9 @@
 
   function renderResults(isBest) {
     var result = lastResult;
-    el.results.eyebrow.textContent = result.deckTitle;
+    el.results.eyebrow.textContent = result.streakRecord
+      ? result.deckTitle + " · best streak record"
+      : result.deckTitle;
     el.results.pct.textContent = result.pct + "%";
     el.results.sub.textContent = result.score + " of " + result.total + " correct";
 
@@ -359,10 +427,22 @@
       el.results.ring.style.strokeDashoffset = circumference * (1 - result.pct / 100);
     });
 
+    if (result.makeupTotal > 0) {
+      el.results.makeupNote.hidden = false;
+      el.results.makeupNote.className = "makeup-note " + (result.makeupCleared === result.makeupTotal ? "makeup-note--good" : "makeup-note--warn");
+      el.results.makeupNote.textContent = result.makeupCleared === result.makeupTotal
+        ? "All " + result.makeupTotal + " missed questions cleared in the make-up round."
+        : "Cleared " + result.makeupCleared + " of " + result.makeupTotal + " re-asked questions.";
+    } else {
+      el.results.makeupNote.hidden = true;
+      el.results.makeupNote.textContent = "";
+    }
+
     el.results.grid.textContent = "";
     var cells = [
       { label: "Score", value: result.score + " / " + result.total },
       { label: "Accuracy", value: result.pct + "%" },
+      { label: "Best streak", value: result.bestStreak + (result.bestStreak === 1 ? " answer" : " in a row") },
       { label: "Time", value: formatDuration(result.duration) },
       { label: "Best", value: isBest ? "New best" : (Store.bestFor(result.deck) ? Store.bestFor(result.deck).pct + "%" : "n/a") }
     ];
@@ -409,8 +489,19 @@
       el.results.breakdown.appendChild(types);
     }
 
+    el.results.seed.textContent = "seed " + result.seed + " · add ?seed=" + result.seed + " to replay this run";
+
     el.results.actions.textContent = "";
-    var again = node("button", "btn", "Retake " + result.deckTitle);
+    if (result.stillMissedIds.length) {
+      var retry = node("button", "btn", "Retry the " + result.stillMissedIds.length + " still missed");
+      retry.type = "button";
+      retry.addEventListener("click", function () {
+        startSession(result.deck, undefined, result.stillMissedIds);
+      });
+      el.results.actions.appendChild(retry);
+    }
+
+    var again = node("button", "btn" + (result.stillMissedIds.length ? " btn--ghost" : ""), "Retake " + result.deckTitle);
     again.type = "button";
     again.addEventListener("click", function () {
       startSession(result.deck);
@@ -448,12 +539,15 @@
       if (!step.graded) return;
       shown += 1;
       var question = step.item;
+      var makeup = step.origin === "makeup";
       var row = document.createElement("li");
-      row.className = "review-item" + (step.correct ? "" : " review-item--miss");
+      row.className = "review-item" + (step.correct ? "" : " review-item--miss") + (makeup ? " review-item--makeup" : "");
 
       var head = node("div", "review-item__head");
-      var badge = node("span", "badge" + (step.correct ? "" : " badge--topic"), "Q" + (index + 1) + " · " + (step.correct ? "correct" : "missed"));
-      head.appendChild(badge);
+      var label = makeup
+        ? "Make-up · " + (step.correct ? "cleared" : "still missed")
+        : "Q" + (index + 1) + " · " + (step.correct ? "correct" : "missed, re-asked at the end");
+      head.appendChild(node("span", "badge" + (step.correct ? "" : " badge--topic"), label));
       if (question.topic) head.appendChild(node("span", "badge badge--topic", question.topic));
       var prompt = node("p", "review-item__prompt", Render.promptText(question));
       row.appendChild(head);
@@ -501,7 +595,10 @@
       var row = document.createElement("li");
       row.className = "history-row";
       var when = new Date(entry.date);
-      row.appendChild(node("span", null, entry.deckTitle + " · " + entry.score + "/" + entry.total + " · " + entry.pct + "%"));
+      var detail = [entry.score + "/" + entry.total, entry.pct + "%"];
+      if (entry.bestStreak) detail.push("streak " + entry.bestStreak);
+      if (entry.makeupTotal) detail.push("make-up " + entry.makeupCleared + "/" + entry.makeupTotal);
+      row.appendChild(node("span", null, entry.deckTitle + " · " + detail.join(" · ")));
       row.appendChild(node("span", null, when.toLocaleDateString() + " " + when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })));
       el.historyList.appendChild(row);
     });
@@ -573,7 +670,7 @@
       go("home");
       return;
     }
-    if (session.steps.filter(function (step) { return step.graded; }).length === 0) {
+    if (session.answered + session.makeup.answered === 0) {
       Store.clearSession();
       session = null;
       renderHome();
@@ -582,7 +679,7 @@
     }
     openSheet(
       "End this session?",
-      "Your answers stay on the results screen only if you finish the quiz. Ending now keeps the progress so you can resume later.",
+      "Your progress is kept, so you can resume from the home screen and the make-up round stays queued.",
       "End session",
       function () {
         renderHome();
@@ -594,15 +691,6 @@
   /* ---------- wiring ---------- */
 
   function wire() {
-    document.getElementById("brand").addEventListener("click", function () {
-      if (currentScreen === "quiz") {
-        requestExit();
-        return;
-      }
-      renderHome();
-      go("home");
-    });
-
     el.exitBtn.addEventListener("click", requestExit);
     el.sheetCancel.addEventListener("click", closeSheet);
     el.sheet.addEventListener("click", function (event) {
@@ -647,7 +735,7 @@
       }
       if (currentScreen !== "quiz" || !session) return;
       var step = session.steps[session.index];
-      if (!step.graded) return;
+      if (!step || !step.graded) return;
       var tag = (event.target && event.target.tagName) || "";
       if (tag === "BUTTON" && event.key === "Enter") return;
       if (event.key === "Enter" || event.key === " ") {

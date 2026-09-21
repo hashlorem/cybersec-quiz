@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>MODULE 1-10 CYBERSECURITY ESSENTIAL QUIZ</title>
-<meta name="description" content="Module 1-10 Cybersecurity Essentials practice quiz: network security modules 1-6, OS and endpoint security modules 7-10. Multiple choice, true or false, and matching items, shuffled every run." />
+<meta name="description" content="Module 1-10 Cybersecurity Essentials practice quiz: network security modules 1-6, OS and endpoint security modules 7-10. Multiple choice, true or false, and matching items, shuffled every run, with streaks and a make-up round." />
 <meta name="color-scheme" content="light dark" />
 <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)" />
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
@@ -15,17 +15,6 @@
 <body>
 <div class="aurora" aria-hidden="true"></div>
 
-<header class="topbar">
-  <button class="brand" id="brand" type="button">
-    <span class="brand__mark" aria-hidden="true">✓</span>
-    <span>Cyber Essentials</span>
-  </button>
-  <div class="topbar__meta">
-    <span class="mono" id="topbar-status"></span>
-    <button class="ghost-btn" id="exit-btn" type="button" aria-label="End session" hidden>✕</button>
-  </div>
-</header>
-
 <main id="main">
   <section class="screen screen--home" data-screen="home" id="screen-home">
     <div class="hero">
@@ -34,7 +23,8 @@
       <p class="hero__sub">
         Practice both checkpoint exams in one place: network security (modules 1-6) and
         OS and endpoint security (modules 7-10). Multiple choice, multi-select,
-        true or false, and matching items, shuffled every run.
+        true or false, and matching items, shuffled every run. Anything you miss
+        comes back at the end, and correct answers build a streak.
       </p>
       <div class="hero__stats" id="hero-stats"></div>
     </div>
@@ -60,7 +50,9 @@
       <div class="quizbar__row">
         <span class="chip" id="quiz-deck"></span>
         <span class="mono quizbar__count" id="quiz-count"></span>
+        <span class="streak" id="quiz-streak" hidden></span>
         <span class="mono quizbar__score" id="quiz-score"></span>
+        <button class="ghost-btn" id="exit-btn" type="button" aria-label="End session" hidden>✕</button>
       </div>
       <div class="progress" role="progressbar" aria-label="Quiz progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress">
         <div class="progress__fill" id="progress-fill"></div>
@@ -84,15 +76,17 @@
           <span class="ring__sub" id="ring-sub">0 of 0 correct</span>
         </div>
       </div>
+      <p class="makeup-note" id="makeup-note" hidden></p>
       <div class="result-grid" id="result-grid"></div>
       <div class="breakdown" id="breakdown"></div>
       <div class="result-actions" id="result-actions"></div>
+      <p class="result-seed mono" id="result-seed"></p>
     </div>
   </section>
 
   <section class="screen" data-screen="review" id="screen-review" hidden>
     <div class="review-head">
-      <h2 class="hero__title" style="font-size: 1.75rem">Review</h2>
+      <h2 class="hero__title review__title">Review</h2>
       <button class="btn btn--ghost btn--pill" id="review-filter" type="button" aria-pressed="false">Show missed only</button>
       <button class="btn btn--ghost btn--pill" id="review-back" type="button">Back to results</button>
     </div>
@@ -101,7 +95,7 @@
 
   <section class="screen" data-screen="history" id="screen-history" hidden>
     <div class="review-head">
-      <h2 class="hero__title" style="font-size: 1.75rem">Attempt history</h2>
+      <h2 class="hero__title review__title">Attempt history</h2>
       <button class="btn btn--ghost btn--pill" id="history-clear" type="button">Clear history</button>
       <button class="btn btn--ghost btn--pill" id="history-back" type="button">Back to home</button>
     </div>

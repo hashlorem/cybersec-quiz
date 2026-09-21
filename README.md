@@ -16,11 +16,20 @@ Live: https://hashlorem.github.io/cybersec-quiz/
 - **Shuffled every run.** Questions, multiple-choice options, and matching
   columns are all shuffled. The shuffle is seeded, so `?seed=` reproduces a run
   exactly and `?deck=` jumps straight into a deck.
+- **Streaks.** Consecutive correct answers are counted in the quiz bar, and the
+  chip goes amber at five in a row. Best streak per attempt lands on the results
+  screen and in history, with the all-time best kept per deck.
+- **Make-up round.** Anything you miss is queued at the end of the run and asked
+  once more, labelled as a make-up. The primary score is untouched by those
+  answers: they decide whether the question counts as cleared. Questions still
+  missed afterwards get a "Retry the N still missed" button on the results
+  screen, which drills just those items.
 - **Instant feedback.** Each answer is marked immediately with the correct
   answer and the explanation from the source material.
-- **Results and review.** Score ring, accuracy, elapsed time, per-topic
-  breakdown sorted weakest first, attempt history, and a review screen with a
-  "missed only" filter. Scores and history live in `localStorage` only.
+- **Results and review.** Score ring, accuracy, best streak, elapsed time,
+  per-topic breakdown sorted weakest first, attempt history, and a review screen
+  that labels re-asked questions and has a "missed only" filter. Scores and
+  history live in `localStorage` only.
 
 ## Question bank
 
@@ -85,9 +94,15 @@ node tools/browser-check.mjs    # real Chromium: full flow + matching drag
 
 Both need Node 22+. `browser-check.mjs` finds a Chromium build itself (or set
 `CHROME=/path/to/browser`), serves the site, and drives it over the DevTools
-Protocol. It walks all 74 questions answering every type correctly, checks the
-one deliberate miss, then covers results, review, resume, history, keyboard
-advance, and the matching board by both drag and tap.
+Protocol: it walks all 75 questions of a run (74 plus the queued make-up),
+answering every type correctly with one deliberate miss, and checks streaks,
+the make-up round, results, review, resume, history, keyboard advance, and the
+matching board by both drag and tap.
+
+`bank-check.mjs` also covers the rules that are easy to break silently: streaks
+building and resetting, a miss being queued exactly once, a missed make-up not
+being re-queued, make-up answers leaving the primary score alone, and a
+snapshot/restore keeping the queue, streak, and make-up state intact.
 
 Or open `?selftest=1` in the browser (also linked from the home screen). It
 checks unique ids, in-range answer keys, multi-select counts that match their

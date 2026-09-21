@@ -37,8 +37,9 @@
     return item.type === "tf" ? item.statement : item.prompt;
   }
 
-  function buildHead(item) {
+  function buildHead(item, step) {
     var head = node("div", "card__head");
+    if (step && step.origin === "makeup") head.appendChild(badge("Make-up round", "badge--makeup"));
     head.appendChild(typeBadge(item));
     if (item.topic) head.appendChild(badge(item.topic, "badge--topic"));
     return head;
@@ -298,11 +299,15 @@
 
   function buildFeedback(step) {
     var item = step.item;
+    var makeup = step.origin === "makeup";
     var feedback = node("div", "feedback");
+    var verdictText = step.correct
+      ? (makeup ? "✓ Cleared" : "✓ Correct")
+      : (makeup ? "✕ Still missed" : "✕ Not quite");
     var verdict = node(
       "p",
       "feedback__verdict " + (step.correct ? "feedback__verdict--good" : "feedback__verdict--bad"),
-      step.correct ? "✓ Correct" : "✕ Not quite"
+      verdictText
     );
     feedback.appendChild(verdict);
 
@@ -324,13 +329,16 @@
     var draft = context.draft || null;
     var article = node("article", "card card--entering");
 
-    article.appendChild(buildHead(item));
+    article.appendChild(buildHead(item, step));
 
     var code = item.code ? node("pre", "code-block", item.code) : null;
     if (code) article.appendChild(code);
 
     var body = node("div", "card__body");
     body.appendChild(node("p", "prompt", promptText(item)));
+    if (step.origin === "makeup") {
+      body.appendChild(node("p", "hint hint--makeup", "This is the question you missed. Get it this time and it counts as cleared."));
+    }
 
     if (item.type === "match") {
       body.appendChild(node("p", "hint", "Drag an answer onto a term, or tap a term and then tap an answer. Every term needs an answer."));

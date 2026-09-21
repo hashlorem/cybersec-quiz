@@ -4,6 +4,7 @@
   var KEYS = {
     history: "qz.history.v1",
     best: "qz.best.v1",
+    streaks: "qz.streaks.v1",
     session: "qz.session.v1"
   };
 
@@ -73,13 +74,33 @@
     return better;
   }
 
+  function recordStreak(deckKey, streak) {
+    var all = read(KEYS.streaks, {});
+    var current = all[deckKey] || 0;
+    if (streak > current) {
+      all[deckKey] = streak;
+      write(KEYS.streaks, all);
+      return { best: streak, isRecord: true };
+    }
+    return { best: current, isRecord: false };
+  }
+
   window.QZ.Store = {
     available: available,
     addAttempt: addAttempt,
     history: function () { return read(KEYS.history, []); },
-    clearHistory: function () { drop(KEYS.history); drop(KEYS.best); },
+    clearHistory: function () {
+      drop(KEYS.history);
+      drop(KEYS.best);
+      drop(KEYS.streaks);
+    },
     bestFor: bestFor,
     recordBest: recordBest,
+    streakFor: function (deckKey) {
+      var all = read(KEYS.streaks, {});
+      return all[deckKey] || 0;
+    },
+    recordStreak: recordStreak,
     saveSession: function (snapshot) { write(KEYS.session, snapshot); },
     session: function () { return read(KEYS.session, null); },
     clearSession: function () { drop(KEYS.session); }

@@ -48,8 +48,8 @@
     return hash >>> 0;
   }
 
-  function buildStep(item, rand) {
-    var step = { item: item, response: null, graded: false, correct: false };
+  function buildStep(item, rand, origin) {
+    var step = { item: item, response: null, graded: false, correct: false, origin: origin || "primary" };
 
     if (item.type === "mc" || item.type === "multi" || item.type === "tf") {
       step.options = shuffled(item.options.map(function (_, index) { return index; }), rand);
@@ -66,41 +66,104 @@
     return step;
   }
 
-  function build(deckKey, seed) {
-    var deck = window.QZ.BANK.decks[deckKey] || window.QZ.BANK.decks.both;
-    var value = typeof seed === "number" ? seed : seedFrom(seed);
-    var rand = mulberry32(value);
-    var steps = shuffled(deck.items, rand).map(function (item) {
-      return buildStep(item, rand);
-    });
+  function emptySession(deck, seed) {
     return {
       deck: deck.key,
       deckTitle: deck.title,
-      seed: value,
-      steps: steps,
+      seed: seed,
+      steps: [],
       index: 0,
-      answered: 0,
+      itemIds: null,
+      primaryTotal: 0,
       score: 0,
+      answered: 0,
+      streak: 0,
+      bestStreak: 0,
+      requeued: [],
+      makeup: { total: 0, answered: 0, cleared: 0 },
       startedAt: Date.now(),
       finishedAt: null
     };
   }
 
-  function restore(snapshot) {
-    if (!snapshot || !snapshot.deck) return null;
-    var session = build(snapshot.deck, snapshot.seed);
-    if (!Array.isArray(snapshot.responses)) return session;
-    session.steps.forEach(function (step, index) {
-      var saved = snapshot.responses[index];
-      if (!saved || !saved.graded) return;
-      step.response = saved.response;
-      step.graded = true;
-      step.correct = !!saved.correct;
+  function build(deckKey, seed) {
+    var deck = window.QZ.BANK.decks[deckKey] || window.QZ.BANK.decks.both;
+    var value = typeof seed === "number" ? seed : seedFrom(seed);
+    var rand = mulberry32(value);
+    var session = emptySession(deck, value);
+    session.steps = shuffled(deck.items, rand).map(function (item) {
+      return buildStep(item, rand, "primary");
     });
-    session.index = Math.min(snapshot.index || 0, session.steps.length - 1);
-    session.answered = session.steps.filter(function (step) { return step.graded; }).length;
-    session.score = session.steps.filter(function (step) { return step.correct; }).length;
-    session.startedAt = snapshot.startedAt || session.startedAt;
+    session.primaryTotal = session.steps.length;
+    return session;
+  }
+
+  /// A session restricted to specific items, used to re-drill the questions
+  /// that were still missed after the make-up round.
+  function buildSubset(deckKey, itemIds, seed) {
+    var deck = window.QZ.BANK.decks[deckKey] || window.QZ.BANK.decks.both;
+    var wanted = itemIds || [];
+    var items = deck.items.filter(function (item) {
+      return wanted.indexOf(item.id) !== -1;
+    });
+    var value = typeof seed === "number" ? seed : seedFrom(seed);
+    var rand = mulberry32(value);
+    var session = emptySession(deck, value);
+    session.itemIds = wanted.slice();
+    session.deckTitle = deck.title + " · missed only";
+    session.steps = shuffled(items, rand).map(function (item) {
+      return buildStep(item, rand, "primary");
+    });
+    session.primaryTotal = session.steps.length;
+    return session;
+  }
+
+  /// Appends a missed question to the end of the queue so it gets one more
+  /// chance. Each item is re-asked at most once, which keeps a wrong make-up
+  /// answer from looping forever.
+  function requeue(session, step) {
+    if (!step) return false;
+    if (step.origin !== "primary") return false;
+    var id = step.item.id;
+    if (session.requeued.indexOf(id) !== -1) return false;
+    session.requeued.push(id);
+    var rand = mulberry32(session.seed + session.requeued.length * 7919);
+    var clone = buildStep(step.item, rand, "makeup");
+    clone.sourceIndex = session.steps.indexOf(step);
+    session.steps.push(clone);
+    session.makeup.total += 1;
+    return true;
+  }
+
+  function recompute(session) {
+    var score = 0;
+    var answered = 0;
+    var primaryTotal = 0;
+    var makeup = { total: 0, answered: 0, cleared: 0 };
+    var streak = 0;
+    var bestStreak = 0;
+
+    session.steps.forEach(function (step) {
+      if (step.origin === "primary") primaryTotal += 1;
+      else makeup.total += 1;
+      if (!step.graded) return;
+      if (step.origin === "primary") {
+        answered += 1;
+        if (step.correct) score += 1;
+      } else {
+        makeup.answered += 1;
+        if (step.correct) makeup.cleared += 1;
+      }
+      streak = step.correct ? streak + 1 : 0;
+      if (streak > bestStreak) bestStreak = streak;
+    });
+
+    session.primaryTotal = primaryTotal;
+    session.score = score;
+    session.answered = answered;
+    session.makeup = makeup;
+    session.streak = streak;
+    session.bestStreak = bestStreak;
     return session;
   }
 
@@ -109,11 +172,41 @@
       deck: session.deck,
       seed: session.seed,
       index: session.index,
+      itemIds: session.itemIds ? session.itemIds.slice() : null,
       startedAt: session.startedAt,
+      requeued: session.requeued.slice(),
       responses: session.steps.map(function (step) {
         return { response: step.response, correct: step.correct, graded: step.graded };
       })
     };
+  }
+
+  function restore(snapshotData) {
+    if (!snapshotData || !snapshotData.deck) return null;
+    var session = snapshotData.itemIds && snapshotData.itemIds.length
+      ? buildSubset(snapshotData.deck, snapshotData.itemIds, snapshotData.seed)
+      : build(snapshotData.deck, snapshotData.seed);
+
+    (snapshotData.requeued || []).forEach(function (id) {
+      var primary = session.steps.filter(function (step) {
+        return step.item.id === id && step.origin === "primary";
+      })[0];
+      if (primary) requeue(session, primary);
+    });
+
+    (snapshotData.responses || []).forEach(function (saved, index) {
+      var step = session.steps[index];
+      if (!step || !saved || !saved.graded) return;
+      step.response = saved.response;
+      step.graded = true;
+      step.correct = !!saved.correct;
+      step.detail = grade(step, saved.response).detail;
+    });
+
+    session.index = Math.min(snapshotData.index || 0, session.steps.length - 1);
+    session.startedAt = snapshotData.startedAt || session.startedAt;
+    recompute(session);
+    return session;
   }
 
   function grade(step, response) {
@@ -158,18 +251,26 @@
     var step = session.steps[session.index];
     if (!step) return session;
     var result = grade(step, response);
-    if (!step.graded) {
-      session.answered += 1;
-      if (result.correct) session.score += 1;
-    } else if (step.correct && !result.correct) {
-      session.score -= 1;
-    } else if (!step.correct && result.correct) {
-      session.score += 1;
-    }
+    var first = !step.graded;
+
     step.response = response;
     step.graded = true;
     step.correct = result.correct;
     step.detail = result.detail;
+
+    if (first) {
+      if (step.origin === "primary") {
+        session.answered += 1;
+        if (result.correct) session.score += 1;
+      } else {
+        session.makeup.answered += 1;
+        if (result.correct) session.makeup.cleared += 1;
+      }
+      session.streak = result.correct ? session.streak + 1 : 0;
+      if (session.streak > session.bestStreak) session.bestStreak = session.streak;
+      if (!result.correct) requeue(session, step);
+    }
+
     return session;
   }
 
@@ -238,12 +339,32 @@
     return { byTopic: byTopic, byType: byType };
   }
 
+  function progress(session) {
+    var done = session.answered + session.makeup.answered;
+    return {
+      done: done,
+      total: session.steps.length,
+      pct: session.steps.length ? Math.round((done / session.steps.length) * 100) : 0
+    };
+  }
+
+  function missedSteps(session) {
+    return session.steps.filter(function (step) {
+      return step.graded && !step.correct && step.origin === "primary";
+    });
+  }
+
   window.QZ.Engine = {
     build: build,
+    buildSubset: buildSubset,
     restore: restore,
     snapshot: snapshot,
     apply: apply,
     grade: grade,
+    requeue: requeue,
+    recompute: recompute,
+    progress: progress,
+    missedSteps: missedSteps,
     correctText: correctText,
     selectedText: selectedText,
     breakdown: breakdown,

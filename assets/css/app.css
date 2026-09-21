@@ -89,59 +89,6 @@ a:hover {
   }
 }
 
-/* ---------- top bar ---------- */
-
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  min-height: var(--topbar-h);
-  padding: var(--space-3) clamp(var(--space-4), 4vw, var(--space-6));
-  background: var(--glass);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  backdrop-filter: blur(20px) saturate(180%);
-  border-bottom: 1px solid var(--glass-edge);
-}
-
-.brand {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  border: 0;
-  background: none;
-  padding: 0;
-  cursor: pointer;
-  font-family: var(--font-display);
-  font-size: var(--text-caption);
-  font-weight: 600;
-  letter-spacing: var(--track-caption);
-  color: var(--text);
-  white-space: nowrap;
-}
-
-.brand__mark {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  background: var(--blue);
-  color: #fff;
-  font-size: 13px;
-  line-height: 1;
-}
-
-.topbar__meta {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-  color: var(--text-mute);
-}
-
 /* ---------- shell ---------- */
 
 main {
@@ -439,8 +386,8 @@ main {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border: 0;
   border-radius: 50%;
   background: var(--surface-sunken);
@@ -457,10 +404,43 @@ main {
 
 .quizbar {
   position: sticky;
-  top: var(--topbar-h);
+  top: 0;
   z-index: 30;
-  padding: var(--space-3) 0 var(--space-2);
-  background: linear-gradient(180deg, var(--canvas) 62%, transparent);
+  padding: var(--space-4) 0 var(--space-3);
+  background: linear-gradient(180deg, var(--canvas) 68%, transparent);
+}
+
+.streak {
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--tint-success);
+  color: var(--good-text);
+  font-size: var(--text-micro);
+  letter-spacing: var(--track-micro);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transition: background-color var(--dur-base) linear, color var(--dur-base) linear;
+}
+
+.streak--hot {
+  background: rgba(255, 159, 10, 0.18);
+  color: var(--warn-text);
+}
+
+.streak--pop {
+  animation: streakPop var(--dur-slow) var(--ease-spring) both;
+}
+
+@keyframes streakPop {
+  0% {
+    transform: scale(0.84);
+  }
+  55% {
+    transform: scale(1.14);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .quizbar__row {
@@ -572,6 +552,11 @@ main {
   letter-spacing: var(--track-micro);
 }
 
+.badge--makeup {
+  background: rgba(255, 159, 10, 0.18);
+  color: var(--warn-text);
+}
+
 .prompt {
   font-family: var(--font-display);
   font-size: var(--text-prompt);
@@ -584,6 +569,10 @@ main {
   font-size: var(--text-caption);
   letter-spacing: var(--track-caption);
   color: var(--text-mute);
+}
+
+.hint--makeup {
+  color: var(--warn-text);
 }
 
 .code-block {
@@ -1045,9 +1034,30 @@ main {
 
 .result-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: var(--space-3);
   width: 100%;
+}
+
+.makeup-note {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-caption);
+  letter-spacing: var(--track-caption);
+}
+
+.makeup-note--good {
+  background: var(--tint-success);
+  color: var(--good-text);
+}
+
+.makeup-note--warn {
+  background: rgba(255, 159, 10, 0.16);
+  color: var(--warn-text);
+}
+
+.result-seed {
+  color: var(--text-mute);
 }
 
 .result-cell {
@@ -1146,6 +1156,14 @@ main {
 
 .review-item--miss {
   box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+
+.review-item--makeup {
+  background: linear-gradient(180deg, rgba(255, 159, 10, 0.07), transparent 72%), var(--surface);
+}
+
+.review__title {
+  font-size: 1.75rem;
 }
 
 .review-item__head {
@@ -1338,11 +1356,11 @@ main {
 }
 
 .pass {
-  color: var(--success);
+  color: var(--good-text);
 }
 
 .fail {
-  color: var(--danger);
+  color: var(--bad-text);
   font-weight: 600;
 }
 
@@ -1355,10 +1373,6 @@ main {
 }
 
 @media (max-width: 560px) {
-  .topbar__meta .mono {
-    display: none;
-  }
-
   .hero__stats .stat-chip:last-child {
     display: none;
   }
