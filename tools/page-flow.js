@@ -114,12 +114,62 @@
   let streakHotSeen = false;
   let keyboardAdvanceWorked = false;
   let iterations = 0;
+  let selectionChecksDone = false;
+  let multiChecksDone = false;
 
   while (state() === "quiz" && iterations < 220) {
     iterations += 1;
     const step = currentStep();
     if (step.graded) throw new Error("step already graded: " + step.item.id);
     typeTally[step.item.type] += 1;
+
+    if (!selectionChecksDone && step.origin === "primary" && step.item.type === "mc") {
+      const options = $$(".card .options .option");
+      const first = options[0];
+      const second = options[1];
+      first.click();
+      await sleep(25);
+      const pickedFirst = window.QZ.state.draft().choice === Number(first.dataset.original);
+      const readyAfterPick = !$(".card .actions .btn").disabled;
+      second.click();
+      await sleep(25);
+      const pickedSecond = window.QZ.state.draft().choice === Number(second.dataset.original);
+      const movedOffFirst = !first.classList.contains("option--selected") && second.classList.contains("option--selected");
+      second.click();
+      await sleep(25);
+      const cleared = window.QZ.state.draft().choice === null && !$$(".card .options .option--selected").length;
+      const disabledAfterClear = $(".card .actions .btn").disabled;
+      const noneDisabled = $$(".card .options .option").every((option) => !option.disabled);
+      record("picking an answer selects it", pickedFirst && readyAfterPick, "");
+      record("an answer can be changed before checking", pickedSecond && movedOffFirst, "");
+      record("an answer can be cleared by picking it again", cleared && disabledAfterClear, "");
+      record("single choice never locks out the other answers", noneDisabled, "");
+      selectionChecksDone = true;
+    }
+
+    if (!multiChecksDone && step.origin === "primary" && step.item.type === "multi") {
+      for (const original of step.item.correct) {
+        click($('.options .option[data-original="' + original + '"]'));
+        await sleep(15);
+      }
+      const lockedOut = $$(".card .options .option").filter((option) => option.disabled).length;
+      const readyAtCount = !$(".card .actions .btn").disabled;
+      record("multi-select locks the rest once the count is met", lockedOut > 0 && readyAtCount, lockedOut + " locked with the full count");
+      const dropOne = step.item.correct[0];
+      click($('.options .option[data-original="' + dropOne + '"]'));
+      await sleep(20);
+      const freed = $$(".card .options .option").filter((option) => option.disabled).length === 0;
+      const shortAgain = $(".card .actions .btn").disabled;
+      record("deselecting frees the other options again", freed && shortAgain, freed ? "all enabled again" : "still locked");
+      click($('.options .option[data-original="' + dropOne + '"]'));
+      await sleep(20);
+      record("the freed option can be picked again", !$(".card .actions .btn").disabled, "");
+      while ($(".card .options .option--selected")) {
+        $(".card .options .option--selected").click();
+        await sleep(15);
+      }
+      multiChecksDone = true;
+    }
 
     let expected = true;
     const scoreBefore = session().score;
@@ -216,7 +266,8 @@
   record("five result cells", $$(".result-cell").length === 5, $$(".result-cell").length);
   record("best streak cell rendered", $$(".result-cell__label").some((label) => /Best streak/i.test(label.textContent)), $$(".result-cell__label").map((l) => l.textContent).join(", "));
   record("breakdown lists topics", $$(".breakdown__row").length >= 5, $$(".breakdown__row").length + " rows");
-  record("breakdown bars have widths", $$(".breakdown__fill").filter((bar) => bar.style.width && bar.style.width !== "0%").length >= 5, "");
+  await sleep(1800);
+  record("breakdown bars have widths", $$(".breakdown__fill").filter((bar) => bar.style.width && bar.style.width !== "0%").length >= 5, $$(".breakdown__fill").map((b) => b.style.width).slice(0, 5).join(","));
   record("four result actions when nothing is still missed", $$("#result-actions .btn").length === 4, $$("#result-actions .btn").length);
   record("no retry button once everything is cleared", !$$("#result-actions .btn").some((button) => /still missed/i.test(button.textContent)), "");
   record("seed caption replaces the old header seed", /seed \d+/.test($("#result-seed").textContent), $("#result-seed").textContent);

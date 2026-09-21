@@ -98,10 +98,19 @@ Protocol in three passes:
 
 - **full flow** walks all 75 questions of a run (74 plus the queued make-up),
   answering every type correctly with one deliberate miss, then checks streaks,
-  the make-up round, results, review, resume, history, and keyboard advance.
-- **matching drag** answers a matching board by drag and by tap.
+  the make-up round, results, review, resume, history, keyboard advance, and
+  that an answer can be picked, changed, and cleared before checking.
+- **matching drag** answers a matching board by drag and by tap, including that
+  a dropped chip does not also register as a tap.
 - **dark mode** re-checks the sticky bar against the canvas and runs a whole
   deck to confirm results and review render on the dark surfaces.
+- **mobile layout** runs at 390x844 and again at 320x568, checking for
+  horizontal overflow, that nothing is clipped, that rows and grids reflow, and
+  that every control is at least a 44px touch target across all five screens.
+- **touch input** drives real touch points over the protocol (a synthetic
+  `TouchEvent` never becomes a pointer event), so tap-to-arm, tap-to-link, drag
+  and drop, and page scrolling are exercised the way a phone actually delivers
+  them.
 
 `bank-check.mjs` also covers the rules that are easy to break silently: streaks
 building and resetting, a miss being queued exactly once, a missed make-up not
@@ -135,3 +144,10 @@ git push
   a full-page layer, which made the sticky quiz bar paint a visible block over
   it in dark mode, since the canvas had a tint the bar could not match. Keeping
   every other screen on a flat canvas means the bar and the page always agree.
+- On touch devices every control is at least 44px tall, the quiz bar switches
+  to compact labels, and the matching board answers by tap (pick an answer, then
+  the term it belongs to) or by drag. Both paths are covered by the touch pass.
+- The pool chips handle taps on `pointerup` rather than `click`, because a drag
+  has to cancel its own press without also cancelling the click that touch and
+  mouse taps rely on. Keyboard activation still arrives as a click with
+  `detail === 0` and is handled there.

@@ -2,6 +2,15 @@
   window.QZ = window.QZ || {};
 
   var reduceQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+  var lastDragEnd = 0;
+
+  /// True while the click that follows a finished drag is still in flight.
+  /// Cancelling pointerdown would suppress that click entirely, which would
+  /// also kill tap-to-answer on touch, so drags are cancelled from pointermove
+  /// and the leftover click is ignored instead.
+  function draggedRecently() {
+    return Date.now() - lastDragEnd < 300;
+  }
 
   function reduced() {
     return reduceQuery.matches;
@@ -115,6 +124,13 @@
       clone.style.transform = "translate3d(" + dx + "px," + dy + "px,0) scale(1.04)";
     }
 
+    function startDrag() {
+      active = true;
+      document.body.style.userSelect = "none";
+      if (settings.onStart) settings.onStart();
+      makeClone(origin.rect);
+    }
+
     function finish(dropped) {
       if (captured && pointerId !== null && chip.releasePointerCapture) {
         try {
@@ -125,6 +141,7 @@
       }
       captured = false;
       pointerId = null;
+      if (active) lastDragEnd = Date.now();
       active = false;
       document.body.style.userSelect = "";
       if (clone && clone.parentNode) clone.parentNode.removeChild(clone);
@@ -143,8 +160,7 @@
       startTime = Date.now();
       measureTargets();
       origin = { x: event.clientX, y: event.clientY };
-      var rect = chip.getBoundingClientRect();
-      origin.rect = rect;
+      origin.rect = chip.getBoundingClientRect();
       if (chip.setPointerCapture) {
         try {
           chip.setPointerCapture(pointerId);
@@ -153,7 +169,8 @@
           captured = false;
         }
       }
-      event.preventDefault();
+      // Deliberately not preventDefault() here: a plain tap has to keep its
+      // click so the chip can be armed for tap-to-pair.
     });
 
     chip.addEventListener("pointermove", function (event) {
@@ -163,23 +180,30 @@
       if (!active) {
         if (Date.now() - startTime < 90 && Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
         if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
-        active = true;
-        document.body.style.userSelect = "none";
-        if (settings.onStart) settings.onStart();
-        makeClone(origin.rect);
+        startDrag();
       }
-      window.requestAnimationFrame(function () {
-        moveClone(event.clientX, event.clientY);
-      });
-      setArmed(hitTest(event.clientX, event.clientY));
       event.preventDefault();
+      var x = event.clientX;
+      var y = event.clientY;
+      window.requestAnimationFrame(function () {
+        moveClone(x, y);
+      });
+      setArmed(hitTest(x, y));
     });
 
     chip.addEventListener("pointerup", function (event) {
       if (pointerId === null || event.pointerId !== pointerId) return;
       var wasActive = active;
       finish(wasActive);
-      event.preventDefault();
+      if (wasActive) {
+        event.preventDefault();
+        return;
+      }
+      pointerId = null;
+      // A press that never became a drag is a tap, handled here so it works
+      // the same for touch and mouse. Keyboard activation arrives as a click
+      // with detail 0 and is handled by the click listener instead.
+      if (settings.onTap) settings.onTap();
     });
 
     chip.addEventListener("pointercancel", function () {
@@ -196,6 +220,7 @@
 
   window.QZ.Motion = {
     reduced: reduced,
+    draggedRecently: draggedRecently,
     duration: duration,
     enter: enter,
     leave: leave,

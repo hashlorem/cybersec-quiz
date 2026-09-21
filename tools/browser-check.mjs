@@ -73,7 +73,7 @@ function serve() {
   });
 }
 
-async function connect(port, url, driverFile, label, scheme) {
+async function openPage(port) {
   const target = await (await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent("about:blank")}`, { method: "PUT" })).json();
   const ws = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
@@ -92,7 +92,7 @@ async function connect(port, url, driverFile, label, scheme) {
     if (message.method === "Runtime.exceptionThrown") {
       problems.push("exception: " + (message.params.exceptionDetails.exception?.description || message.params.exceptionDetails.text));
     }
-    if (message.method === "Log.entryAdded" && message.params.entry.level === "error") {
+    if (message.method === "Log.entryAdded" && message.params.entry.level === "error" && !/favicon/.test(message.params.entry.url || "")) {
       problems.push("console error: " + message.params.entry.text + " (" + (message.params.entry.url || "") + ")");
     }
   };
@@ -107,16 +107,33 @@ async function connect(port, url, driverFile, label, scheme) {
   await send("Page.enable");
   await send("Network.enable");
   await send("Network.setCacheDisabled", { cacheDisabled: true });
+
+  return { send, problems, close: () => ws.close() };
+}
+
+async function waitForApp(send) {
+  for (let i = 0; i < 60; i++) {
+    const ready = await send("Runtime.evaluate", { expression: "!!(window.QZ && window.QZ.state && window.QZ.state.session)", returnByValue: true });
+    if (ready.result.value) return true;
+    await sleep(150);
+  }
+  return false;
+}
+
+async function connect(port, url, driverFile, label, scheme, device) {
+  const client = await openPage(port);
+  const { send, problems } = client;
+
+  if (device) {
+    await send("Emulation.setDeviceMetricsOverride", device);
+    await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
+  }
   await send("Emulation.setEmulatedMedia", { features: [
     { name: "prefers-reduced-motion", value: "reduce" },
     { name: "prefers-color-scheme", value: scheme || "light" }
   ] });
   await send("Page.navigate", { url });
-  for (let i = 0; i < 60; i++) {
-    const ready = await send("Runtime.evaluate", { expression: "!!(window.QZ && window.QZ.state && window.QZ.state.screen)", returnByValue: true });
-    if (ready.result.value) break;
-    await sleep(150);
-  }
+  await waitForApp(send);
   await sleep(400);
 
   const outcome = await send("Runtime.evaluate", {
@@ -124,7 +141,7 @@ async function connect(port, url, driverFile, label, scheme) {
     awaitPromise: true,
     returnByValue: true
   });
-  ws.close();
+  client.close();
 
   if (outcome.exceptionDetails) {
     return { label, failures: 1, total: 1, results: [{ name: "driver ran to completion", pass: false, detail: outcome.exceptionDetails.exception?.description || outcome.exceptionDetails.text }], problems };
@@ -176,12 +193,14 @@ const base = `http://127.0.0.1:${sitePort}/`;
 const runs = [
   { label: "full flow", url: base, driver: path.join(root, "tools/page-flow.js") },
   { label: "matching drag", url: base + "?deck=both&seed=drag52", driver: path.join(root, "tools/page-matching.js") },
-  { label: "dark mode", url: base + "?deck=network&seed=darkpass", driver: path.join(root, "tools/page-dark.js"), scheme: "dark" }
+  { label: "dark mode", url: base + "?deck=network&seed=darkpass", driver: path.join(root, "tools/page-dark.js"), scheme: "dark" },
+  { label: "mobile layout", url: base, driver: path.join(root, "tools/page-mobile.js"), device: { width: 390, height: 844, deviceScaleFactor: 2, mobile: true } },
+  { label: "mobile smallest", url: base, driver: path.join(root, "tools/page-mobile.js"), device: { width: 320, height: 568, deviceScaleFactor: 2, mobile: true } }
 ];
 
 let failed = 0;
 for (const run of runs) {
-  const result = await connect(debugPort, run.url, run.driver, run.label, run.scheme);
+  const result = await connect(debugPort, run.url, run.driver, run.label, run.scheme, run.device);
   console.log(`\n${run.label}: ${result.total - result.failures}/${result.total} checks passed`);
   for (const entry of result.results) {
     if (entry.pass) continue;
@@ -193,6 +212,17 @@ for (const run of runs) {
   }
   failed += result.failures + result.problems.length;
 }
+
+const { touchPass } = await import("./touch-pass.mjs");
+const touchClient = await openPage(debugPort);
+const touchResult = await touchPass(touchClient.send, base, sleep);
+touchClient.close();
+console.log(`\n${touchResult.label}: ${touchResult.total - touchResult.failures}/${touchResult.total} checks passed`);
+for (const entry of touchResult.results) {
+  if (entry.pass) continue;
+  console.log("  FAIL " + entry.name + (entry.detail ? " -> " + entry.detail : ""));
+}
+failed += touchResult.failures;
 
 browser.kill();
 server.close();

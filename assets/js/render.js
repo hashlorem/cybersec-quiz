@@ -94,7 +94,10 @@
         } else {
           option.setAttribute("aria-pressed", "false");
         }
-        if (selected.length >= limit && !isSelected) option.disabled = true;
+        // Only multi-select locks out other options once the required number
+        // is picked. Single choice stays open so an answer can be changed or
+        // cleared before checking.
+        if (item.type === "multi" && selected.length >= limit && !isSelected) option.disabled = true;
         option.addEventListener("click", function () {
           if (item.type === "multi") {
             var at = selected.indexOf(originalIndex);
@@ -102,11 +105,13 @@
             else selected.splice(at, 1);
             handlers.select({ choices: selected.slice() });
           } else if (item.type === "tf") {
-            selected = [originalIndex];
-            handlers.select({ value: originalIndex === 0 });
+            var value = selected.indexOf(originalIndex) === -1 ? originalIndex === 0 : null;
+            selected = value === null ? [] : [originalIndex];
+            handlers.select({ value: value });
           } else {
-            selected = [originalIndex];
-            handlers.select({ choice: originalIndex });
+            var choice = selected.indexOf(originalIndex) === -1 ? originalIndex : null;
+            selected = choice === null ? [] : [originalIndex];
+            handlers.select({ choice: choice });
           }
         });
       }
@@ -173,7 +178,9 @@
             slot.appendChild(node("span", "term__fix", "Correct: " + item.pairs[entry.index].right));
           }
         }
-        entry.label.setAttribute("aria-pressed", poolId ? "true" : "false");
+        // aria-pressed tracks the held-term state, not whether the term has a
+        // link, so a term never reads as "still held" after it was filled.
+        entry.label.setAttribute("aria-pressed", selectedTerm.index === entry.index ? "true" : "false");
       });
 
       poolChips.forEach(function (chip) {
@@ -193,8 +200,29 @@
       });
       links[termIndex] = poolId;
       armedPool.id = null;
+      selectedTerm.index = null;
       repaint();
       handlers.select({ links: links });
+    }
+
+    /// One answer is picked at a time: pick it, then pick the term it belongs
+    /// to. Picking the same answer again clears the pick.
+    function activateChip(entry) {
+      var chip = poolChips.filter(function (candidate) { return candidate.dataset.pool === entry.id; })[0];
+      if (!chip || step.graded || chip.disabled) return;
+      if (window.QZ.Motion.draggedRecently()) return;
+      if (armedPool.id === entry.id) {
+        armedPool.id = null;
+        repaint();
+        return;
+      }
+      armedPool.id = entry.id;
+      var pending = pendingTermIndex();
+      if (pending !== null && pending !== undefined) {
+        assign(pending, entry.id);
+        return;
+      }
+      repaint();
     }
 
     var poolChips = [];
@@ -203,25 +231,9 @@
       chip.type = "button";
       chip.dataset.pool = entry.id;
       chip.setAttribute("aria-pressed", "false");
-      chip.addEventListener("click", function () {
-        if (step.graded || chip.disabled) return;
-        if (armedPool.id === entry.id) {
-          armedPool.id = null;
-          repaint();
-          return;
-        }
-        armedPool.id = entry.id;
-        var emptyTerm = termIndexes().filter(function (index) { return !links[index]; })[0];
-        var pendingTerm = pendingTermIndex();
-        if (pendingTerm !== null && pendingTerm !== undefined) {
-          assign(pendingTerm, entry.id);
-          return;
-        }
-        if (emptyTerm !== undefined && emptyTerm !== null) {
-          assign(emptyTerm, entry.id);
-          return;
-        }
-        repaint();
+      chip.addEventListener("click", function (event) {
+        if (event.detail !== 0) return;
+        activateChip(entry);
       });
       poolChips.push(chip);
       poolWrap.appendChild(chip);
@@ -282,6 +294,10 @@
           targets: targets,
           onStart: function () {
             chip.classList.add("pool-chip--dragging");
+          },
+          onTap: function () {
+            var entry = step.pool.filter(function (candidate) { return candidate.id === chip.dataset.pool; })[0];
+            if (entry) activateChip(entry);
           },
           onDrop: function (termIndex) {
             chip.classList.remove("pool-chip--dragging");

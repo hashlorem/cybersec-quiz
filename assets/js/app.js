@@ -301,7 +301,7 @@
       var isSelected = selected.indexOf(original) !== -1;
       button.classList.toggle("option--selected", isSelected);
       button.setAttribute("aria-pressed", isSelected ? "true" : "false");
-      button.disabled = selected.length >= limit && !isSelected;
+      button.disabled = step.item.type === "multi" && selected.length >= limit && !isSelected;
     }
   }
 
