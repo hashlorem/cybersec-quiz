@@ -76,11 +76,24 @@ Item shapes:
 
 ## Verify
 
-Open `?selftest=1` in the browser (or the "Bank self-test" link on the home
-screen). It checks unique ids, in-range answer keys, multi-select counts that
-match their keys, boolean true/false answers, a balanced true/false split,
-unambiguous matching pairs, and that every deck mixes all four question types.
-Every check must pass before publishing a change.
+Three layers, all dependency-free:
+
+```bash
+node tools/bank-check.mjs       # question bank + engine, no browser needed
+node tools/browser-check.mjs    # real Chromium: full flow + matching drag
+```
+
+Both need Node 22+. `browser-check.mjs` finds a Chromium build itself (or set
+`CHROME=/path/to/browser`), serves the site, and drives it over the DevTools
+Protocol. It walks all 74 questions answering every type correctly, checks the
+one deliberate miss, then covers results, review, resume, history, keyboard
+advance, and the matching board by both drag and tap.
+
+Or open `?selftest=1` in the browser (also linked from the home screen). It
+checks unique ids, in-range answer keys, multi-select counts that match their
+keys, boolean true/false answers, a balanced true/false split, unambiguous
+matching pairs, and that every deck mixes all four question types. Every check
+must pass before publishing a change.
 
 `window.QZ.state` exposes read-only `screen()`, `session()`, `draft()`, and
 `result()` for debugging and for driving the browser tests.
