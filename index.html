@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MODULE 1-10 CYBERSECURITY ESSENTIAL QUIZ</title>
+<meta name="description" content="Module 1-10 Cybersecurity Essentials practice quiz: network security modules 1-6, OS and endpoint security modules 7-10. Multiple choice, true or false, and matching items, shuffled every run." />
+<meta name="color-scheme" content="light dark" />
+<meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%230071e3'/%3E%3Cpath d='M20 32l8 8 16-17' stroke='%23fff' stroke-width='6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="assets/css/tokens.css" />
+<link rel="stylesheet" href="assets/css/app.css" />
+</head>
+<body>
+<div class="aurora" aria-hidden="true"></div>
+
+<header class="topbar">
+  <button class="brand" id="brand" type="button">
+    <span class="brand__mark" aria-hidden="true">✓</span>
+    <span>Cyber Essentials</span>
+  </button>
+  <div class="topbar__meta">
+    <span class="mono" id="topbar-status"></span>
+    <button class="ghost-btn" id="exit-btn" type="button" aria-label="End session" hidden>✕</button>
+  </div>
+</header>
+
+<main id="main">
+  <section class="screen screen--home" data-screen="home" id="screen-home">
+    <div class="hero">
+      <p class="eyebrow">Cisco · Cybersecurity Essentials</p>
+      <h1 class="hero__title">MODULE 1-10<br />CYBERSECURITY ESSENTIAL QUIZ</h1>
+      <p class="hero__sub">
+        Practice both checkpoint exams in one place: network security (modules 1-6) and
+        OS and endpoint security (modules 7-10). Multiple choice, multi-select,
+        true or false, and matching items, shuffled every run.
+      </p>
+      <div class="hero__stats" id="hero-stats"></div>
+    </div>
+
+    <div class="tiles" id="deck-tiles"></div>
+
+    <div class="resume" id="resume-wrap" hidden>
+      <button class="btn btn--ghost btn--pill" id="resume-btn" type="button"></button>
+    </div>
+
+    <footer class="home-foot">
+      <p>Instant feedback · explanations from the source material · progress saved in this browser.</p>
+      <p>
+        <button class="link" id="history-btn" type="button">Attempt history</button>
+        <span aria-hidden="true">·</span>
+        <a class="link" href="?selftest=1">Bank self-test</a>
+      </p>
+    </footer>
+  </section>
+
+  <section class="screen" data-screen="quiz" id="screen-quiz" hidden>
+    <div class="quizbar">
+      <div class="quizbar__row">
+        <span class="chip" id="quiz-deck"></span>
+        <span class="mono quizbar__count" id="quiz-count"></span>
+        <span class="mono quizbar__score" id="quiz-score"></span>
+      </div>
+      <div class="progress" role="progressbar" aria-label="Quiz progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progress">
+        <div class="progress__fill" id="progress-fill"></div>
+      </div>
+    </div>
+    <div class="card-frame" id="card-frame">
+      <div class="card-host" id="question-card"></div>
+    </div>
+  </section>
+
+  <section class="screen" data-screen="results" id="screen-results" hidden>
+    <div class="results">
+      <p class="eyebrow" id="results-eyebrow">Session complete</p>
+      <div class="ring">
+        <svg viewBox="0 0 216 216" aria-hidden="true">
+          <circle class="ring__track" cx="108" cy="108" r="94"></circle>
+          <circle class="ring__value" id="ring-value" cx="108" cy="108" r="94"></circle>
+        </svg>
+        <div class="ring__center">
+          <span class="ring__pct" id="ring-pct">0%</span>
+          <span class="ring__sub" id="ring-sub">0 of 0 correct</span>
+        </div>
+      </div>
+      <div class="result-grid" id="result-grid"></div>
+      <div class="breakdown" id="breakdown"></div>
+      <div class="result-actions" id="result-actions"></div>
+    </div>
+  </section>
+
+  <section class="screen" data-screen="review" id="screen-review" hidden>
+    <div class="review-head">
+      <h2 class="hero__title" style="font-size: 1.75rem">Review</h2>
+      <button class="btn btn--ghost btn--pill" id="review-filter" type="button" aria-pressed="false">Show missed only</button>
+      <button class="btn btn--ghost btn--pill" id="review-back" type="button">Back to results</button>
+    </div>
+    <ul class="review-list" id="review-list"></ul>
+  </section>
+
+  <section class="screen" data-screen="history" id="screen-history" hidden>
+    <div class="review-head">
+      <h2 class="hero__title" style="font-size: 1.75rem">Attempt history</h2>
+      <button class="btn btn--ghost btn--pill" id="history-clear" type="button">Clear history</button>
+      <button class="btn btn--ghost btn--pill" id="history-back" type="button">Back to home</button>
+    </div>
+    <ul class="history-list" id="history-list"></ul>
+  </section>
+
+  <section class="screen" data-screen="selftest" id="screen-selftest" hidden>
+    <div class="selftest" id="selftest"></div>
+  </section>
+</main>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="sheet__panel" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <h2 class="sheet__title" id="sheet-title"></h2>
+    <p class="sheet__body" id="sheet-body"></p>
+    <div class="sheet__actions">
+      <button class="btn btn--ghost" id="sheet-cancel" type="button">Keep going</button>
+      <button class="btn" id="sheet-confirm" type="button">End session</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+<div class="sr-only" id="live" aria-live="polite"></div>
+
+<script src="assets/js/deck-network.js" defer></script>
+<script src="assets/js/deck-endpoint.js" defer></script>
+<script src="assets/js/deck-tf.js" defer></script>
+<script src="assets/js/data.js" defer></script>
+<script src="assets/js/engine.js" defer></script>
+<script src="assets/js/storage.js" defer></script>
+<script src="assets/js/motion.js" defer></script>
+<script src="assets/js/render.js" defer></script>
+<script src="assets/js/app.js" defer></script>
+</body>
+</html>
