@@ -99,6 +99,23 @@ const order = mcStep.options.join(",");
 const sortedOptions = mcStep.options.slice().sort((a, b) => a - b).join(",");
 console.log("option order is a permutation: " + (order.split(",").length === mcStep.item.options.length && mcStep.options.length === new Set(mcStep.options).size));
 
+const tfSteps = session.steps.filter((step) => step.item.type === "tf");
+const tfOrderOk = tfSteps.every((step) =>
+  step.options[0] === 0 &&
+  step.options[1] === 1 &&
+  step.item.options[0] === "True" &&
+  step.item.options[1] === "False"
+);
+console.log("true or false stays True-left, False-right across " + tfSteps.length + " items: " + tfOrderOk);
+if (!tfOrderOk) process.exit(1);
+
+const tfKeysOk = tfSteps.every((step) => {
+  const expected = step.item.answer ? 0 : 1;
+  return step.item.correct[0] === expected && step.options[expected] === expected;
+});
+console.log("true or false answer keys still line up with the fixed order: " + tfKeysOk);
+if (!tfKeysOk) process.exit(1);
+
 const matchStep = session.steps.find((s) => s.item.type === "match");
 const poolIds = matchStep.pool.map((p) => p.id).sort().join(",");
 const expectedIds = matchStep.item.pairs.map((_, i) => "p" + i).concat((matchStep.item.distractors || []).map((_, i) => "x" + i)).sort().join(",");

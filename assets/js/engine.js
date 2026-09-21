@@ -51,8 +51,12 @@
   function buildStep(item, rand, origin) {
     var step = { item: item, response: null, graded: false, correct: false, origin: origin || "primary" };
 
-    if (item.type === "mc" || item.type === "multi" || item.type === "tf") {
+    if (item.type === "mc" || item.type === "multi") {
       step.options = shuffled(item.options.map(function (_, index) { return index; }), rand);
+    } else if (item.type === "tf") {
+      // True and False keep their positions: True is always the left option, so
+      // the answer never depends on where the shuffle happened to put them.
+      step.options = item.options.map(function (_, index) { return index; });
     } else if (item.type === "match") {
       step.left = shuffled(item.pairs.map(function (_, index) { return index; }), rand);
       var pool = item.pairs.map(function (pair, index) {

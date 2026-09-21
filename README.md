@@ -14,8 +14,9 @@ Live: https://hashlorem.github.io/cybersec-quiz/
   three"), true or false, and matching items (drag an answer onto a term, or tap
   a term then tap an answer).
 - **Shuffled every run.** Questions, multiple-choice options, and matching
-  columns are all shuffled. The shuffle is seeded, so `?seed=` reproduces a run
-  exactly and `?deck=` jumps straight into a deck.
+  columns are all shuffled. True or false is the exception: True stays on the
+  left and False on the right on every question. The shuffle is seeded, so
+  `?seed=` reproduces a run exactly and `?deck=` jumps straight into a deck.
 - **Streaks.** Consecutive correct answers are counted in the quiz bar, and the
   chip goes amber at five in a row. Best streak per attempt lands on the results
   screen and in history, with the all-time best kept per deck.

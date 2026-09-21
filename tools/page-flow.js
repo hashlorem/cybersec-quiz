@@ -117,11 +117,29 @@
   let selectionChecksDone = false;
   let multiChecksDone = false;
 
+  const tfOrders = [];
   while (state() === "quiz" && iterations < 220) {
     iterations += 1;
     const step = currentStep();
     if (step.graded) throw new Error("step already graded: " + step.item.id);
     typeTally[step.item.type] += 1;
+
+    if (step.item.type === "tf" && tfOrders.length < 2) {
+      const labels = $$(".card .options .option .option__label").map((node) => node.textContent.trim());
+      const boxes = $$(".card .options .option").map((node) => node.getBoundingClientRect());
+      tfOrders.push({
+        id: step.item.id,
+        labels: labels,
+        leftFirst: boxes[0].left < boxes[1].left,
+        sideBySide: Math.abs(boxes[0].top - boxes[1].top) < 4,
+        answer: step.item.answer
+      });
+      if (tfOrders.length === 2) {
+        record("true or false shows True left and False right", tfOrders.every((order) => order.labels[0] === "True" && order.labels[1] === "False"), JSON.stringify(tfOrders.map((order) => order.labels.join("/"))));
+        record("the order holds whichever answer is correct", tfOrders[0].answer !== tfOrders[1].answer, tfOrders.map((order) => order.id + " answer=" + order.answer).join(", "));
+        record("True sits to the left of False on a wide screen", tfOrders.every((order) => order.sideBySide && order.leftFirst), JSON.stringify(tfOrders.map((order) => order.leftFirst + "/" + order.sideBySide)));
+      }
+    }
 
     if (!selectionChecksDone && step.origin === "primary" && step.item.type === "mc") {
       const options = $$(".card .options .option");
